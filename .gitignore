@@ -1,0 +1,22 @@
+# Dependencias
+node_modules/
+
+# Build outputs
+dist/
+build/
+.cache/
+
+# Variables de entorno (CRÍTICO: Aquí irán tus llaves de AWS y Google Maps)
+.env
+.env.local
+.env.production
+
+# AWS y CDK
+cdk.out/
+.aws-sam/
+*.pem
+
+# Logs y Debug
+npm-debug.log*
+yarn-error.log*
+.eslintcache

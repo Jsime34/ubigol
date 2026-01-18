@@ -1,0 +1,21 @@
+{
+  "name": "ubigol-root",
+  "private":"true",
+  "version": "1.0.0",
+  "description": "Ubigol - matchmaking platform",
+  "main": "index.js",
+  "scripts": {
+    "prepare:folders": "mkdirp apps/frontend apps/backend packages/shared"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "workspaces": [
+    "apps/*",
+    "packages/*"
+  ],
+  "devDependencies": {
+    "mkdirp": "^3.0.1"
+  }
+}
