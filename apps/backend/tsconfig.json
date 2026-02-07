@@ -1,0 +1,33 @@
+{
+  "compilerOptions": {
+    /* Gestión de Archivos */
+    "rootDir": "./src",                         /* Dónde está tu código */
+    "outDir": "./dist",                         /* Dónde se guarda el código listo para AWS */
+
+    /* Entorno */
+    "module": "NodeNext",                       /* Necesario para Node moderno */
+    "moduleResolution": "NodeNext",
+    "target": "ESNext",                         /* Código moderno de JavaScript */
+    "lib": ["ESNext"],
+    "types": ["node"],                          /* Asegura que reconozca comandos de Node */
+
+    /* Salidas de depuración */
+    "sourceMap": true,                          /* Ayuda a debugear errores en TS, no en JS */
+    "declaration": true,                        /* Útil para compartir tipos con el frontend */
+    "declarationMap": true,
+
+    /* Reglas Strict (Las mejores para evitar errores en Ubigol) */
+    "strict": true,
+    "noUncheckedIndexedAccess": true,           /* Evita errores al acceder a arrays/objetos */
+    "exactOptionalPropertyTypes": true,
+    "noImplicitAny": true,                      /* No permite variables sin tipo definido */
+
+    /* Configuración recomendada */
+    "esModuleInterop": true,                    /* Importante para importar Express sin errores */
+    "forceConsistentCasingInFileNames": true,
+    "skipLibCheck": true,
+    "isolatedModules": true
+  },
+  "include": ["src/**/*"],                      /* Solo mira la carpeta src */
+  "exclude": ["node_modules", "dist"]           /* Ignora lo que no es código fuente */
+}
