@@ -20,3 +20,7 @@ cdk.out/
 npm-debug.log*
 yarn-error.log*
 .eslintcache
+
+# Temp files
+tmpclaude-*
+.claude/
