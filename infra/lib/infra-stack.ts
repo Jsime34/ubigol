@@ -50,7 +50,19 @@ export class InfraStack extends cdk.Stack {
       preventUserExistenceErrors: true,
     });
 
-    // Tabla para canchas/playfields
+    // Tabla para complejos deportivos
+    const complexesTable = new dynamodb.Table(this, 'UbigolComplexes', {
+      partitionKey: { name: 'id', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    complexesTable.addGlobalSecondaryIndex({
+      indexName: 'ByStatus',
+      partitionKey: { name: 'verificationStatus', type: dynamodb.AttributeType.STRING },
+    });
+
+    // Tabla para canchas individuales dentro de un complejo
     const playfieldsTable = new dynamodb.Table(this, 'UbigolPlayfields', {
       partitionKey: { name: 'id', type: dynamodb.AttributeType.STRING },
       billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
@@ -58,18 +70,65 @@ export class InfraStack extends cdk.Stack {
     });
 
     playfieldsTable.addGlobalSecondaryIndex({
+      indexName: 'ByComplex',
+      partitionKey: { name: 'complexId', type: dynamodb.AttributeType.STRING },
+    });
+
+    // Tabla para duenos/managers de complejos
+    const ownersTable = new dynamodb.Table(this, 'UbigolOwners', {
+      partitionKey: { name: 'id', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    ownersTable.addGlobalSecondaryIndex({
+      indexName: 'ByUserId',
+      partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
+    });
+
+    // Tabla de relacion muchos a muchos entre complejos y duenos
+    const complexOwnersTable = new dynamodb.Table(this, 'UbigolComplexOwners', {
+      partitionKey: { name: 'complexId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'ownerId', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    complexOwnersTable.addGlobalSecondaryIndex({
       indexName: 'ByOwner',
       partitionKey: { name: 'ownerId', type: dynamodb.AttributeType.STRING },
     });
 
-    playfieldsTable.addGlobalSecondaryIndex({
-      indexName: 'ByStatus',
-      partitionKey: { name: 'verificationStatus', type: dynamodb.AttributeType.STRING },
+    // Tabla de notificaciones para usuarios
+    const notificationsTable = new dynamodb.Table(this, 'UbigolNotifications', {
+      partitionKey: { name: 'userId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'createdAt', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    // Tabla de asistencia / calificaciones de jugadores
+    const attendanceTable = new dynamodb.Table(this, 'UbigolAttendance', {
+      partitionKey: { name: 'gameId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'reviewerSubjectKey', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
+    attendanceTable.addGlobalSecondaryIndex({
+      indexName: 'BySubject',
+      partitionKey: { name: 'subjectId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'createdAt', type: dynamodb.AttributeType.STRING },
     });
 
     // Outputs
     new cdk.CfnOutput(this, 'TableName', { value: matchesTable.tableName });
+    new cdk.CfnOutput(this, 'ComplexesTableName', { value: complexesTable.tableName });
     new cdk.CfnOutput(this, 'PlayfieldsTableName', { value: playfieldsTable.tableName });
+    new cdk.CfnOutput(this, 'OwnersTableName', { value: ownersTable.tableName });
+    new cdk.CfnOutput(this, 'ComplexOwnersTableName', { value: complexOwnersTable.tableName });
+    new cdk.CfnOutput(this, 'NotificationsTableName', { value: notificationsTable.tableName });
+    new cdk.CfnOutput(this, 'AttendanceTableName', { value: attendanceTable.tableName });
     new cdk.CfnOutput(this, 'UserPoolId', { value: userPool.userPoolId });
     new cdk.CfnOutput(this, 'UserPoolClientId', { value: userPoolClient.userPoolClientId });
   }

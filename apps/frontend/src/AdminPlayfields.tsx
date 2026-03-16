@@ -1,13 +1,13 @@
 import { useEffect, useState } from 'react';
 import { X, Check, Ban } from 'lucide-react';
-import { fetchPendingPlayfields, approvePlayfield, rejectPlayfield, type Playfield } from './api';
+import { fetchPendingComplexes, approveComplex, rejectComplex, currencyForCountry, type Complex } from './api';
 
 interface Props {
   onClose: () => void;
 }
 
 export default function AdminPlayfields({ onClose }: Props) {
-  const [playfields, setPlayfields] = useState<Playfield[]>([]);
+  const [complexes, setComplexes] = useState<Complex[]>([]);
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [rejectingId, setRejectingId] = useState<string | null>(null);
@@ -16,8 +16,8 @@ export default function AdminPlayfields({ onClose }: Props) {
 
   const load = () => {
     setLoading(true);
-    fetchPendingPlayfields()
-      .then(setPlayfields)
+    fetchPendingComplexes()
+      .then(setComplexes)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
   };
@@ -27,7 +27,7 @@ export default function AdminPlayfields({ onClose }: Props) {
   const handleApprove = async (id: string) => {
     setActionLoading(id);
     try {
-      await approvePlayfield(id);
+      await approveComplex(id);
       load();
     } catch (err: any) {
       setError(err.message);
@@ -39,7 +39,7 @@ export default function AdminPlayfields({ onClose }: Props) {
   const handleReject = async (id: string) => {
     setActionLoading(id);
     try {
-      await rejectPlayfield(id, rejectReason);
+      await rejectComplex(id, rejectReason);
       setRejectingId(null);
       setRejectReason('');
       load();
@@ -57,8 +57,8 @@ export default function AdminPlayfields({ onClose }: Props) {
           <X size={20} className="text-slate-400" />
         </button>
 
-        <h2 className="text-xl font-black text-slate-800 mb-1">Canchas Pendientes</h2>
-        <p className="text-sm text-slate-500 mb-5">Revisa y aprueba o rechaza las canchas enviadas</p>
+        <h2 className="text-xl font-black text-slate-800 mb-1">Complejos Pendientes</h2>
+        <p className="text-sm text-slate-500 mb-5">Revisa y aprueba o rechaza los complejos deportivos enviados</p>
 
         {error && (
           <div className="bg-red-50 border border-red-200 text-red-700 text-sm rounded-lg p-3 mb-4">
@@ -68,37 +68,57 @@ export default function AdminPlayfields({ onClose }: Props) {
 
         {loading ? (
           <p className="text-sm text-slate-500 text-center py-8">Cargando...</p>
-        ) : playfields.length === 0 ? (
-          <p className="text-sm text-slate-500 text-center py-8">No hay canchas pendientes de aprobacion</p>
+        ) : complexes.length === 0 ? (
+          <p className="text-sm text-slate-500 text-center py-8">No hay complejos pendientes de aprobacion</p>
         ) : (
           <div className="space-y-4">
-            {playfields.map((pf) => (
-              <div key={pf.id} className="border border-slate-200 rounded-xl p-4">
+            {complexes.map((cx) => (
+              <div key={cx.id} className="border border-slate-200 rounded-xl p-4">
                 <div className="flex items-start justify-between mb-2">
                   <div>
-                    <h3 className="font-bold text-sm text-slate-800">{pf.name}</h3>
-                    <p className="text-xs text-slate-500">{pf.address}</p>
+                    <h3 className="font-bold text-sm text-slate-800">{cx.name}</h3>
+                    <p className="text-xs text-slate-500">{cx.address}</p>
                   </div>
                   <span className={`text-xs font-semibold px-2 py-0.5 rounded-full ${
-                    pf.type === 'private' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
+                    cx.type === 'private' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
                   }`}>
-                    {pf.type === 'private' ? 'Privada' : 'Publica'}
+                    {cx.type === 'private' ? 'Privado' : 'Publico'}
                   </span>
                 </div>
 
                 <div className="text-xs text-slate-600 space-y-1 mb-3">
-                  <p><span className="font-medium">Enviada por:</span> {pf.ownerName} ({pf.ownerEmail})</p>
-                  <p><span className="font-medium">Deportes:</span> {pf.sports.join(', ')}</p>
-                  {pf.amenities.length > 0 && (
-                    <p><span className="font-medium">Amenidades:</span> {pf.amenities.join(', ')}</p>
+                  {cx.owners && cx.owners.length > 0 && (
+                    <>
+                      <p><span className="font-medium">Dueno(s):</span>{' '}
+                        {cx.owners.map((o) => `${o.name} (${o.email})`).join(', ')}
+                      </p>
+                      <p><span className="font-medium">Telefono:</span> {cx.owners[0].phone}</p>
+                    </>
                   )}
-                  {pf.description && (
-                    <p><span className="font-medium">Descripcion:</span> {pf.description}</p>
+                  {cx.amenities.length > 0 && (
+                    <p><span className="font-medium">Amenidades:</span> {cx.amenities.join(', ')}</p>
                   )}
-                  <p><span className="font-medium">Coordenadas:</span> {pf.latitude.toFixed(5)}, {pf.longitude.toFixed(5)}</p>
+                  {cx.description && (
+                    <p><span className="font-medium">Descripcion:</span> {cx.description}</p>
+                  )}
+                  <p><span className="font-medium">Coordenadas:</span> {cx.latitude.toFixed(5)}, {cx.longitude.toFixed(5)}</p>
+
+                  {cx.playfields && cx.playfields.length > 0 && (
+                    <div className="mt-2">
+                      <span className="font-medium">Canchas ({cx.playfields.length}):</span>
+                      <ul className="mt-1 space-y-0.5 ml-2">
+                        {cx.playfields.map((pf) => (
+                          <li key={pf.id} className="text-xs text-slate-600">
+                            {pf.name} — {(pf.sports || []).join(', ')}
+                            {pf.pricePerHour ? ` — ${currencyForCountry(cx.countryCode).symbol}${pf.pricePerHour}/hr` : ''}
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  )}
                 </div>
 
-                {rejectingId === pf.id ? (
+                {rejectingId === cx.id ? (
                   <div className="space-y-2">
                     <textarea
                       value={rejectReason}
@@ -109,8 +129,8 @@ export default function AdminPlayfields({ onClose }: Props) {
                     />
                     <div className="flex gap-2">
                       <button
-                        onClick={() => handleReject(pf.id)}
-                        disabled={actionLoading === pf.id}
+                        onClick={() => handleReject(cx.id)}
+                        disabled={actionLoading === cx.id}
                         className="flex-1 bg-red-500 text-white text-xs py-1.5 rounded-lg font-semibold hover:bg-red-600 transition disabled:opacity-50"
                       >
                         Confirmar Rechazo
@@ -126,16 +146,16 @@ export default function AdminPlayfields({ onClose }: Props) {
                 ) : (
                   <div className="flex gap-2">
                     <button
-                      onClick={() => handleApprove(pf.id)}
-                      disabled={actionLoading === pf.id}
+                      onClick={() => handleApprove(cx.id)}
+                      disabled={actionLoading === cx.id}
                       className="flex-1 bg-green-600 text-white text-xs py-1.5 rounded-lg font-semibold hover:bg-green-700 transition disabled:opacity-50 flex items-center justify-center gap-1"
                     >
                       <Check size={14} />
                       Aprobar
                     </button>
                     <button
-                      onClick={() => setRejectingId(pf.id)}
-                      disabled={actionLoading === pf.id}
+                      onClick={() => setRejectingId(cx.id)}
+                      disabled={actionLoading === cx.id}
                       className="flex-1 bg-red-500 text-white text-xs py-1.5 rounded-lg font-semibold hover:bg-red-600 transition disabled:opacity-50 flex items-center justify-center gap-1"
                     >
                       <Ban size={14} />

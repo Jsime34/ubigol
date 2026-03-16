@@ -5,8 +5,8 @@
     "outDir": "./dist",                         /* Dónde se guarda el código listo para AWS */
 
     /* Entorno */
-    "module": "NodeNext",                       /* Necesario para Node moderno */
-    "moduleResolution": "NodeNext",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
     "target": "ESNext",                         /* Código moderno de JavaScript */
     "lib": ["ESNext"],
     "types": ["node"],                          /* Asegura que reconozca comandos de Node */

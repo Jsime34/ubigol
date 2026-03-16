@@ -1,13 +1,39 @@
 import { useCallback, useEffect, useState } from 'react';
-import { LogOut, Plus, Search, Shield, User } from 'lucide-react';
+import { MapPin, Plus, Search } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMap } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
+import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
+import markerIcon from 'leaflet/dist/images/marker-icon.png';
+import markerShadow from 'leaflet/dist/images/marker-shadow.png';
+
+delete (L.Icon.Default.prototype as any)._getIconUrl;
+L.Icon.Default.mergeOptions({
+  iconUrl: markerIcon,
+  iconRetinaUrl: markerIcon2x,
+  shadowUrl: markerShadow,
+});
 import { useAuth } from './AuthContext';
 import Login from './Login';
 import CreateGame from './CreateGame';
 import AdminPlayfields from './AdminPlayfields';
-import { fetchGames, fetchMe, joinGame, leaveGame, cancelGame, type Game } from './api';
+import SubmitPlayfield from './SubmitPlayfield';
+import PlayfieldSchedule from './PlayfieldSchedule';
+import OwnerDashboard from './OwnerDashboard';
+import NotificationBell from './NotificationBell';
+import GameDashboard from './GameDashboard';
+import UserMenu from './UserMenu';
+import AttendanceModal from './AttendanceModal';
+import ReliabilityBadge from './ReliabilityBadge';
+import { fetchGames, fetchComplexes, fetchMe, fetchMyComplexes, fetchPendingAttendance, joinGame, leaveGame, cancelGame, currencyForCountry, type Game, type Complex, type Playfield } from './api';
+
+const AMENITY_LABELS: Record<string, string> = {
+  lights: 'Iluminación',
+  parking: 'Estacionamiento',
+  water: 'Agua',
+  locker_rooms: 'Vestidores',
+  bathrooms: 'Baños',
+};
 
 const SPORT_ICONS: Record<string, string> = {
   futbol: '⚽',
@@ -26,23 +52,46 @@ const greenIcon = new L.Icon({
   shadowSize: [41, 41],
 });
 
+const blueIcon = new L.Icon({
+  iconUrl: 'https://raw.githubusercontent.com/pointhi/leaflet-color-markers/master/img/marker-icon-2x-blue.png',
+  shadowUrl: 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/images/marker-shadow.png',
+  iconSize: [25, 41],
+  iconAnchor: [12, 41],
+  popupAnchor: [1, -34],
+  shadowSize: [41, 41],
+});
+
 function App() {
   const { isAuthenticated, email, logout } = useAuth();
   const [showLogin, setShowLogin] = useState(false);
   const [showCreate, setShowCreate] = useState(false);
   const [showAdmin, setShowAdmin] = useState(false);
+  const [showOwnerDashboard, setShowOwnerDashboard] = useState(false);
+  const [showSubmitPlayfield, setShowSubmitPlayfield] = useState(false);
+  const [scheduleTarget, setScheduleTarget] = useState<{ complex: Complex; playfield: Playfield } | null>(null);
+  const [createGamePlayfield, setCreateGamePlayfield] = useState<{ id: string; name: string; sports: string[] } | null>(null);
   const [isAdmin, setIsAdmin] = useState(false);
+  const [isOwner, setIsOwner] = useState(false);
+  const [userName, setUserName] = useState('');
   const [games, setGames] = useState<Game[]>([]);
+  const [complexes, setComplexes] = useState<Complex[]>([]);
   const [userLocation, setUserLocation] = useState<[number, number]>([0, 0]);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
+  const [pendingAttendance, setPendingAttendance] = useState<Game[]>([]);
+  const [attendanceGame, setAttendanceGame] = useState<Game | null>(null);
 
   const loadGames = useCallback(() => {
     fetchGames().then(setGames).catch(() => {});
   }, []);
 
+  const loadComplexes = useCallback(() => {
+    fetchComplexes().then(setComplexes).catch(() => {});
+  }, []);
+
   useEffect(() => {
     loadGames();
-  }, [loadGames]);
+    loadComplexes();
+  }, [loadGames, loadComplexes]);
 
   // Get user's Cognito sub for checking join/leave/cancel
   const [userSub, setUserSub] = useState<string | null>(null);
@@ -53,10 +102,14 @@ function App() {
           if (session) setUserSub(session.getIdToken().payload['sub'] as string);
         })
       );
-      fetchMe().then((me) => setIsAdmin(me.isAdmin)).catch(() => setIsAdmin(false));
+      fetchMe().then((me) => { setIsAdmin(me.isAdmin); setUserName(me.name); }).catch(() => setIsAdmin(false));
+      fetchMyComplexes().then((cxs) => setIsOwner(cxs.length > 0)).catch(() => setIsOwner(false));
+      fetchPendingAttendance().then(setPendingAttendance).catch(() => {});
     } else {
       setUserSub(null);
       setIsAdmin(false);
+      setIsOwner(false);
+      setPendingAttendance([]);
     }
   }, [isAuthenticated]);
 
@@ -101,7 +154,7 @@ function App() {
   return (
     <div className="h-screen flex flex-col overflow-hidden">
 
-      <header className="h-16 bg-white border-b px-6 flex justify-between items-center z-20 shadow-sm">
+      <header className="h-16 bg-white border-b px-6 flex justify-between items-center z-[1000] relative shadow-sm">
         <div className="flex items-center gap-2">
           <div className="bg-green-600 p-1.5 rounded-lg text-white">
             <SoccerBall size={24} />
@@ -117,17 +170,17 @@ function App() {
           </button>
           {isAuthenticated ? (
             <div className="flex items-center gap-2">
-              {isAdmin && (
-                <button onClick={() => setShowAdmin(true)} className="p-2 hover:bg-amber-50 rounded-full transition" title="Panel de administracion">
-                  <Shield size={18} className="text-amber-600" />
-                </button>
-              )}
-              <div className="h-8 w-8 bg-green-100 rounded-full flex items-center justify-center border border-green-300 cursor-pointer" title={email || ''}>
-                <User size={18} className="text-green-600" />
-              </div>
-              <button onClick={logout} className="p-2 hover:bg-red-50 rounded-full transition" title="Cerrar sesión">
-                <LogOut size={18} className="text-slate-500 hover:text-red-500" />
-              </button>
+              <NotificationBell />
+              <UserMenu
+                email={email || ''}
+                userName={userName}
+                userSub={userSub}
+                isOwner={isOwner}
+                isAdmin={isAdmin}
+                onShowOwnerDashboard={() => setShowOwnerDashboard(true)}
+                onShowAdmin={() => setShowAdmin(true)}
+                onLogout={logout}
+              />
             </div>
           ) : (
             <button onClick={() => setShowLogin(true)} className="bg-green-600 text-white px-4 py-1.5 rounded-lg text-sm font-bold hover:bg-green-700 transition">
@@ -149,10 +202,18 @@ function App() {
           />
           <LocateUser onLocated={setUserLocation} />
 
-          {games.map((game) => {
+          {games.filter((g) => {
+            // Show open/full games to everyone
+            if (g.status === 'open' || g.status === 'full') return true;
+            // Show pending/rejected games only to their creator
+            if ((g.status === 'pending_approval' || g.status === 'rejected') && userSub === g.creatorId) return true;
+            return false;
+          }).map((game) => {
             const isCreator = userSub === game.creatorId;
             const isPlayer = game.players.includes(userSub || '');
             const isFull = game.players.length >= game.maxPlayers;
+            const isPending = game.status === 'pending_approval';
+            const isRejected = game.status === 'rejected';
 
             return (
               <Marker
@@ -166,12 +227,42 @@ function App() {
                       <span className="text-lg">{SPORT_ICONS[game.sport] || '🏅'}</span>
                       <h3 className="font-bold text-sm">{game.title}</h3>
                     </div>
+                    {isPending && (
+                      <div className="bg-amber-50 border border-amber-200 text-amber-700 text-[10px] font-semibold rounded px-2 py-1 mb-1">
+                        Pendiente de aprobación del dueño
+                      </div>
+                    )}
+                    {isRejected && (
+                      <div className="bg-red-50 border border-red-200 text-red-700 text-[10px] font-semibold rounded px-2 py-1 mb-1">
+                        Rechazado por el dueño
+                      </div>
+                    )}
                     <p className="text-xs text-slate-500 mb-1">
-                      {game.date} a las {game.time}
+                      {game.date} — {game.time} a {game.endTime || '?'}
                     </p>
-                    <p className="text-xs text-slate-500 mb-1">
-                      Organizador: {game.creatorName}
-                    </p>
+                    {game.complexName && (
+                      <p className="text-xs text-blue-600 font-semibold mb-1">
+                        {game.complexName}{game.playfieldName ? ` — ${game.playfieldName}` : ''}
+                        {game.playfieldId && (
+                          <button
+                            onClick={() => {
+                              const cx = complexes.find((c) => c.id === game.complexId);
+                              const pf = cx?.playfields?.find((p) => p.id === game.playfieldId);
+                              if (cx && pf) setScheduleTarget({ complex: cx, playfield: pf });
+                            }}
+                            className="ml-1 text-blue-500 hover:underline"
+                          >
+                            (ver horario)
+                          </button>
+                        )}
+                      </p>
+                    )}
+                    <div className="flex items-center gap-2 mb-1">
+                      <p className="text-xs text-slate-500">
+                        Organizador: {game.creatorName}
+                      </p>
+                      <ReliabilityBadge playerSub={game.creatorId} compact />
+                    </div>
                     <p className="text-xs font-semibold mb-2">
                       {game.players.length}/{game.maxPlayers} jugadores
                       {isFull && <span className="text-red-500 ml-1">(Lleno)</span>}
@@ -221,31 +312,160 @@ function App() {
               </Marker>
             );
           })}
+
+          {complexes.map((cx) => (
+            <Marker
+              key={`cx-${cx.id}`}
+              position={[cx.latitude, cx.longitude]}
+              icon={blueIcon}
+            >
+              <Popup minWidth={240}>
+                <div className="p-1">
+                  <div className="flex items-center justify-between mb-1">
+                    <h3 className="font-bold text-sm">{cx.name}</h3>
+                    <span className={`text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+                      cx.type === 'private' ? 'bg-amber-100 text-amber-700' : 'bg-blue-100 text-blue-700'
+                    }`}>
+                      {cx.type === 'private' ? 'Privado' : 'Publico'}
+                    </span>
+                  </div>
+                  <p className="text-xs text-slate-500 mb-1">{cx.address}</p>
+                  {cx.amenities.length > 0 && (
+                    <p className="text-xs text-slate-500 mb-1">{cx.amenities.map((a) => AMENITY_LABELS[a] || a).join(', ')}</p>
+                  )}
+                  {cx.description && (
+                    <p className="text-xs text-slate-600 mb-2">{cx.description}</p>
+                  )}
+                  {cx.playfields && cx.playfields.length > 0 && (
+                    <div className="border-t border-slate-100 pt-2 mt-1">
+                      <p className="text-xs font-semibold text-slate-700 mb-1">Canchas ({cx.playfields.length})</p>
+                      {cx.playfields.map((pf) => (
+                        <div key={pf.id} className="flex items-center justify-between text-xs text-slate-600 py-1">
+                          <span>{(pf.sports || []).map((s) => SPORT_ICONS[s] || '🏅').join('')} {pf.name}</span>
+                          <div className="flex items-center gap-2">
+                            {pf.pricePerHour && <span className="text-green-600 font-semibold">{currencyForCountry(cx.countryCode).symbol}{pf.pricePerHour}/hr</span>}
+                            <button
+                              onClick={() => setScheduleTarget({ complex: cx, playfield: pf })}
+                              className="text-blue-600 font-semibold hover:underline"
+                            >
+                              Ver horario
+                            </button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </Popup>
+            </Marker>
+          ))}
         </MapContainer>
 
+        <GameDashboard
+          games={games}
+          userLocation={userLocation}
+          userSub={userSub}
+          isAuthenticated={isAuthenticated}
+          onJoinGame={handleJoin}
+          onLeaveGame={handleLeave}
+          onShowLogin={() => setShowLogin(true)}
+          actionLoading={actionLoading}
+        />
+
         {isAuthenticated && (
-          <button
-            onClick={() => setShowCreate(true)}
-            className="absolute bottom-8 right-8 bg-green-600 text-white p-4 rounded-full shadow-2xl hover:bg-green-700 hover:scale-110 transition-all active:scale-95 z-[1000] flex items-center gap-2 group"
-          >
-            <Plus size={24} />
-            <span className="max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-300 ease-in-out font-bold">
-              CREAR JUEGO
-            </span>
-          </button>
+          <div className="absolute bottom-8 right-[340px] z-[1000] flex flex-col gap-3 items-end">
+            <button
+              onClick={() => setShowSubmitPlayfield(true)}
+              className="bg-blue-600 text-white p-3 rounded-full shadow-2xl hover:bg-blue-700 hover:scale-110 transition-all active:scale-95 flex items-center gap-2 group"
+            >
+              <MapPin size={20} />
+              <span className="max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-300 ease-in-out font-bold text-sm">
+                REGISTRAR COMPLEJO
+              </span>
+            </button>
+            <button
+              onClick={() => setShowCreate(true)}
+              className="bg-green-600 text-white p-4 rounded-full shadow-2xl hover:bg-green-700 hover:scale-110 transition-all active:scale-95 flex items-center gap-2 group"
+            >
+              <Plus size={24} />
+              <span className="max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-300 ease-in-out font-bold">
+                CREAR JUEGO
+              </span>
+            </button>
+          </div>
         )}
       </main>
 
+      {scheduleTarget && (
+        <PlayfieldSchedule
+          complex={scheduleTarget.complex}
+          playfield={scheduleTarget.playfield}
+          onClose={() => setScheduleTarget(null)}
+          onCreateGame={(playfieldId) => {
+            setCreateGamePlayfield({
+              id: playfieldId,
+              name: scheduleTarget.playfield.name,
+              sports: scheduleTarget.playfield.sports,
+            });
+            setScheduleTarget(null);
+            setShowCreate(true);
+          }}
+          onJoinGame={async (gameId) => {
+            await handleJoin(gameId);
+            setScheduleTarget({ ...scheduleTarget });
+          }}
+          userSub={userSub}
+          isAuthenticated={isAuthenticated}
+        />
+      )}
+      {showSubmitPlayfield && (
+        <SubmitPlayfield
+          onClose={() => setShowSubmitPlayfield(false)}
+          defaultLat={userLocation[0]}
+          defaultLng={userLocation[1]}
+        />
+      )}
+      {showOwnerDashboard && <OwnerDashboard onClose={() => setShowOwnerDashboard(false)} />}
       {showAdmin && <AdminPlayfields onClose={() => setShowAdmin(false)} />}
       {showLogin && <Login onClose={() => setShowLogin(false)} />}
 
       {showCreate && (
         <CreateGame
-          onClose={() => setShowCreate(false)}
+          onClose={() => { setShowCreate(false); setCreateGamePlayfield(null); }}
           onCreated={loadGames}
           defaultLat={userLocation[0]}
           defaultLng={userLocation[1]}
+          playfieldId={createGamePlayfield?.id}
+          playfieldName={createGamePlayfield?.name}
+          playfieldSports={createGamePlayfield?.sports}
         />
+      )}
+
+      {attendanceGame && userSub && (
+        <AttendanceModal
+          game={attendanceGame}
+          userSub={userSub}
+          onClose={() => setAttendanceGame(null)}
+          onSubmitted={() => {
+            setAttendanceGame(null);
+            setPendingAttendance((prev) => prev.filter((g) => g.id !== attendanceGame.id));
+          }}
+        />
+      )}
+
+      {pendingAttendance.length > 0 && !attendanceGame && (
+        <div className="fixed bottom-6 left-6 z-[1500] bg-white rounded-xl shadow-xl border border-amber-200 p-4 max-w-sm animate-bounce-slow">
+          <p className="text-sm font-bold text-slate-800 mb-1">Tienes juegos por calificar</p>
+          <p className="text-xs text-slate-500 mb-3">
+            Califica a tus companeros de {pendingAttendance.length} juego{pendingAttendance.length > 1 ? 's' : ''} terminado{pendingAttendance.length > 1 ? 's' : ''}
+          </p>
+          <button
+            onClick={() => setAttendanceGame(pendingAttendance[0])}
+            className="w-full bg-amber-500 text-white text-sm font-bold py-2 rounded-lg hover:bg-amber-600 transition"
+          >
+            Calificar ahora
+          </button>
+        </div>
       )}
     </div>
   );
