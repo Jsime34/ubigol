@@ -1,6 +1,6 @@
 import { getIdToken } from './auth';
 
-const API_BASE = '/api';
+const API_BASE = import.meta.env.VITE_API_URL || '/api';
 
 const COUNTRY_CURRENCY: Record<string, { symbol: string; code: string }> = {
   US: { symbol: '$', code: 'USD' },

@@ -4,7 +4,8 @@ let socket: Socket | null = null;
 
 export function connectSocket(token: string) {
   if (socket?.connected) return;
-  socket = io({ auth: { token } });
+  const url = import.meta.env.VITE_API_URL;
+  socket = url ? io(url, { auth: { token } }) : io({ auth: { token } });
 }
 
 export function disconnectSocket() {
