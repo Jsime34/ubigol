@@ -131,6 +131,19 @@ export async function leaveGame(id: string): Promise<void> {
   }
 }
 
+export async function kickPlayer(gameId: string, playerId: string): Promise<void> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_BASE}/games/${gameId}/kick`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json', ...headers },
+    body: JSON.stringify({ playerId }),
+  });
+  if (!res.ok) {
+    const err = await res.json();
+    throw new Error(err.error || 'Error al expulsar jugador');
+  }
+}
+
 export async function cancelGame(id: string): Promise<void> {
   const headers = await authHeaders();
   const res = await fetch(`${API_BASE}/games/${id}`, {
@@ -460,5 +473,44 @@ export async function fetchPendingAttendance(): Promise<Game[]> {
 
 export async function fetchPlayerReliability(sub: string): Promise<PlayerReliability> {
   const res = await fetch(`${API_BASE}/attendance/players/${sub}/reliability`);
+  return res.json();
+}
+
+// ── Chat ──
+
+export interface ChatMessage {
+  id: string;
+  gameId: string;
+  senderId: string;
+  senderName: string;
+  content: string;
+  createdAt: string;
+}
+
+export interface ChatGame {
+  id: string;
+  title: string;
+  sport: string;
+  date: string;
+  time: string;
+  endTime: string;
+  playerCount: number;
+  lastMessage?: { content: string; senderName: string; createdAt: string };
+}
+
+export async function fetchActiveChats(): Promise<ChatGame[]> {
+  const headers = await authHeaders();
+  const res = await fetch(`${API_BASE}/chat/active`, { headers });
+  if (!res.ok) return [];
+  return res.json();
+}
+
+export async function fetchChatMessages(gameId: string, limit?: number, before?: string): Promise<ChatMessage[]> {
+  const headers = await authHeaders();
+  const params = new URLSearchParams();
+  if (limit) params.set('limit', String(limit));
+  if (before) params.set('before', before);
+  const res = await fetch(`${API_BASE}/chat/${gameId}/messages?${params}`, { headers });
+  if (!res.ok) return [];
   return res.json();
 }

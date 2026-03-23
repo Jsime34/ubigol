@@ -11,3 +11,4 @@ export const OWNERS_TABLE = process.env.DYNAMODB_OWNERS_TABLE || '';
 export const COMPLEX_OWNERS_TABLE = process.env.DYNAMODB_COMPLEX_OWNERS_TABLE || '';
 export const NOTIFICATIONS_TABLE = process.env.DYNAMODB_NOTIFICATIONS_TABLE || '';
 export const ATTENDANCE_TABLE = process.env.DYNAMODB_ATTENDANCE_TABLE || '';
+export const MESSAGES_TABLE = process.env.DYNAMODB_MESSAGES_TABLE || '';

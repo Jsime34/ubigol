@@ -294,6 +294,63 @@ router.post('/:id/leave', requireAuth, async (req: Request, res: Response) => {
   res.json({ message: 'Saliste del juego' });
 });
 
+// Kick a player from a game (creator only)
+router.post('/:id/kick', requireAuth, async (req: Request, res: Response) => {
+  const user = (req as any).user;
+  const { playerId } = req.body;
+
+  if (!playerId) {
+    res.status(400).json({ error: 'Falta el ID del jugador' });
+    return;
+  }
+
+  const gameResult = await db.send(new GetCommand({
+    TableName: TABLE_NAME,
+    Key: { id: req.params.id },
+  }));
+
+  const game = gameResult.Item as any;
+  if (!game) {
+    res.status(404).json({ error: 'Juego no encontrado' });
+    return;
+  }
+  if (game.creatorId !== user.sub) {
+    res.status(403).json({ error: 'Solo el creador puede expulsar jugadores' });
+    return;
+  }
+  if (playerId === user.sub) {
+    res.status(400).json({ error: 'No puedes expulsarte a ti mismo' });
+    return;
+  }
+  if (!game.players.includes(playerId)) {
+    res.status(400).json({ error: 'El jugador no está en este juego' });
+    return;
+  }
+
+  const updatedPlayers = game.players.filter((p: string) => p !== playerId);
+  const updatedPlayerNames = { ...(game.playerNames || {}) };
+  const kickedName = updatedPlayerNames[playerId] || 'Jugador';
+  delete updatedPlayerNames[playerId];
+
+  await db.send(new UpdateCommand({
+    TableName: TABLE_NAME,
+    Key: { id: req.params.id },
+    UpdateExpression: 'SET players = :players, #s = :status, playerNames = :playerNames',
+    ExpressionAttributeNames: { '#s': 'status' },
+    ExpressionAttributeValues: { ':players': updatedPlayers, ':status': 'open', ':playerNames': updatedPlayerNames },
+  }));
+
+  await createNotification(
+    playerId,
+    'kicked_from_game',
+    'Expulsado del juego',
+    `Fuiste expulsado del juego "${game.title}" por el organizador.`,
+    { gameId: game.id },
+  );
+
+  res.json({ message: `${kickedName} fue expulsado del juego` });
+});
+
 // Cancel a game (auth required, creator only)
 router.delete('/:id', requireAuth, async (req: Request, res: Response) => {
   const user = (req as any).user;

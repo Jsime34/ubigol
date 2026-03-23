@@ -121,6 +121,15 @@ export class InfraStack extends cdk.Stack {
       sortKey: { name: 'createdAt', type: dynamodb.AttributeType.STRING },
     });
 
+    // Tabla de mensajes de chat por juego
+    const messagesTable = new dynamodb.Table(this, 'UbigolMessages', {
+      tableName: 'UbigolMessages',
+      partitionKey: { name: 'gameId', type: dynamodb.AttributeType.STRING },
+      sortKey: { name: 'createdAt', type: dynamodb.AttributeType.STRING },
+      billingMode: dynamodb.BillingMode.PAY_PER_REQUEST,
+      removalPolicy: cdk.RemovalPolicy.DESTROY,
+    });
+
     // Outputs
     new cdk.CfnOutput(this, 'TableName', { value: matchesTable.tableName });
     new cdk.CfnOutput(this, 'ComplexesTableName', { value: complexesTable.tableName });
@@ -129,6 +138,7 @@ export class InfraStack extends cdk.Stack {
     new cdk.CfnOutput(this, 'ComplexOwnersTableName', { value: complexOwnersTable.tableName });
     new cdk.CfnOutput(this, 'NotificationsTableName', { value: notificationsTable.tableName });
     new cdk.CfnOutput(this, 'AttendanceTableName', { value: attendanceTable.tableName });
+    new cdk.CfnOutput(this, 'MessagesTableName', { value: messagesTable.tableName });
     new cdk.CfnOutput(this, 'UserPoolId', { value: userPool.userPoolId });
     new cdk.CfnOutput(this, 'UserPoolClientId', { value: userPoolClient.userPoolClientId });
   }

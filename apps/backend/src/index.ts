@@ -1,4 +1,5 @@
 import 'dotenv/config';
+import http from 'http';
 import express, { Request, Response } from 'express';
 import { requireAuth, ADMIN_EMAILS } from './middleware';
 import gamesRouter from './routes/games';
@@ -6,9 +7,14 @@ import complexesRouter from './routes/complexes';
 import notificationsRouter from './routes/notifications';
 import adminRouter from './routes/admin';
 import attendanceRouter from './routes/attendance';
+import chatRouter from './routes/chat';
+import { setupSocket } from './socket';
 
 const app = express();
+const server = http.createServer(app);
 const PORT = 3000;
+
+setupSocket(server);
 
 app.use(express.json());
 
@@ -29,7 +35,8 @@ app.use('/complexes', complexesRouter);
 app.use('/notifications', notificationsRouter);
 app.use('/admin', adminRouter);
 app.use('/attendance', attendanceRouter);
+app.use('/chat', chatRouter);
 
-app.listen(PORT, () => {
+server.listen(PORT, () => {
   console.log(`Servidor de Ubigol corriendo en http://localhost:${PORT}`);
 });

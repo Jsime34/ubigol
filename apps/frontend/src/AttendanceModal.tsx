@@ -62,8 +62,8 @@ export default function AttendanceModal({ game, userSub, onClose, onSubmitted }:
   };
 
   return (
-    <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/40">
-      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 max-h-[90vh] flex flex-col">
+    <div className="fixed inset-0 z-[3000] flex items-center justify-center bg-black/40 animate-backdrop-in">
+      <div className="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 max-h-[90vh] flex flex-col animate-modal-in">
         {/* Header */}
         <div className="px-5 py-4 border-b border-slate-100">
           <div className="flex items-center justify-between">

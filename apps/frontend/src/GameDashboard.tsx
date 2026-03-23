@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { ChevronRight, ChevronLeft, Clock, MapPin, Users } from 'lucide-react';
+import { ChevronRight, ChevronLeft, Clock, MapPin, Users, MessageCircle } from 'lucide-react';
 import type { Game } from './api';
 import ReliabilityBadge from './ReliabilityBadge';
 
@@ -34,6 +34,7 @@ interface GameDashboardProps {
   onLeaveGame: (gameId: string) => void;
   onShowLogin: () => void;
   actionLoading: string | null;
+  onOpenChat?: (game: Game) => void;
 }
 
 export default function GameDashboard({
@@ -45,6 +46,7 @@ export default function GameDashboard({
   onLeaveGame,
   onShowLogin,
   actionLoading,
+  onOpenChat,
 }: GameDashboardProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [radiusKm, setRadiusKm] = useState(10);
@@ -183,6 +185,7 @@ export default function GameDashboard({
                       onLeave={onLeaveGame}
                       onShowLogin={onShowLogin}
                       actionLoading={actionLoading}
+                      onOpenChat={onOpenChat}
                       isCurrent
                     />
                   ))}
@@ -219,6 +222,7 @@ export default function GameDashboard({
                       onLeave={onLeaveGame}
                       onShowLogin={onShowLogin}
                       actionLoading={actionLoading}
+                      onOpenChat={onOpenChat}
                     />
                   ))}
                 </div>
@@ -240,6 +244,7 @@ function GameCard({
   onLeave,
   onShowLogin,
   actionLoading,
+  onOpenChat,
   isCurrent,
 }: {
   game: Game;
@@ -250,6 +255,7 @@ function GameCard({
   onLeave: (id: string) => void;
   onShowLogin: () => void;
   actionLoading: string | null;
+  onOpenChat?: (game: Game) => void;
   isCurrent?: boolean;
 }) {
   const isCreator = userSub === game.creatorId;
@@ -271,7 +277,7 @@ function GameCard({
           <span className="text-sm font-semibold text-slate-800 truncate">{game.title}</span>
         </div>
         <span className="text-[10px] text-slate-400 flex-shrink-0 ml-2">
-          {distance < 1 ? `${Math.round(distance * 1000)}m` : `${distance.toFixed(1)}km`}
+          {distance < 1 ? `${Math.round(distance * 1000)} mts` : `${distance.toFixed(1)} km`}
         </span>
       </div>
 
@@ -311,7 +317,7 @@ function GameCard({
           {!isAuthenticated ? (
             <button
               onClick={onShowLogin}
-              className="w-full text-[11px] font-semibold py-1.5 rounded bg-green-600 text-white hover:bg-green-700 transition"
+              className="w-full text-[11px] font-semibold py-1.5 rounded bg-orange-500 text-white hover:bg-orange-600 active:scale-95 transition"
             >
               Inicia sesion para unirte
             </button>
@@ -327,12 +333,23 @@ function GameCard({
             <button
               onClick={() => onJoin(game.id)}
               disabled={actionLoading === game.id || isFull}
-              className="w-full text-[11px] font-semibold py-1.5 rounded bg-green-600 text-white hover:bg-green-700 transition disabled:opacity-50"
+              className="w-full text-[11px] font-semibold py-1.5 rounded bg-orange-500 text-white hover:bg-orange-600 active:scale-95 transition disabled:opacity-50 disabled:active:scale-100"
             >
               {isFull ? 'Lleno' : 'Unirme'}
             </button>
           )}
         </div>
+      )}
+
+      {/* Chat button */}
+      {(isPlayer || isCreator) && onOpenChat && (
+        <button
+          onClick={() => onOpenChat(game)}
+          className="w-full flex items-center justify-center gap-1.5 text-[11px] font-semibold py-1.5 rounded bg-green-50 text-green-700 hover:bg-green-100 active:scale-95 transition mt-1.5"
+        >
+          <MessageCircle size={12} />
+          Chat
+        </button>
       )}
     </div>
   );

@@ -25,6 +25,10 @@ import GameDashboard from './GameDashboard';
 import UserMenu from './UserMenu';
 import AttendanceModal from './AttendanceModal';
 import ReliabilityBadge from './ReliabilityBadge';
+import GameChat from './GameChat';
+import ChatList from './ChatList';
+import { connectSocket, disconnectSocket } from './socket';
+import { getIdToken } from './auth';
 import { fetchGames, fetchComplexes, fetchMe, fetchMyComplexes, fetchPendingAttendance, joinGame, leaveGame, cancelGame, currencyForCountry, type Game, type Complex, type Playfield } from './api';
 
 const AMENITY_LABELS: Record<string, string> = {
@@ -79,6 +83,8 @@ function App() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [pendingAttendance, setPendingAttendance] = useState<Game[]>([]);
   const [attendanceGame, setAttendanceGame] = useState<Game | null>(null);
+  const [showChatList, setShowChatList] = useState(false);
+  const [chatTarget, setChatTarget] = useState<{ gameId: string; title: string; sport: string } | null>(null);
 
   const loadGames = useCallback(() => {
     fetchGames().then(setGames).catch(() => {});
@@ -105,11 +111,13 @@ function App() {
       fetchMe().then((me) => { setIsAdmin(me.isAdmin); setUserName(me.name); }).catch(() => setIsAdmin(false));
       fetchMyComplexes().then((cxs) => setIsOwner(cxs.length > 0)).catch(() => setIsOwner(false));
       fetchPendingAttendance().then(setPendingAttendance).catch(() => {});
+      getIdToken().then((token) => { if (token) connectSocket(token); });
     } else {
       setUserSub(null);
       setIsAdmin(false);
       setIsOwner(false);
       setPendingAttendance([]);
+      disconnectSocket();
     }
   }, [isAuthenticated]);
 
@@ -179,6 +187,7 @@ function App() {
                 isAdmin={isAdmin}
                 onShowOwnerDashboard={() => setShowOwnerDashboard(true)}
                 onShowAdmin={() => setShowAdmin(true)}
+                onShowChats={() => setShowChatList(true)}
                 onLogout={logout}
               />
             </div>
@@ -272,37 +281,47 @@ function App() {
                     )}
 
                     {isAuthenticated ? (
-                      <div className="flex gap-2">
-                        {isCreator ? (
+                      <div className="flex flex-col gap-1.5">
+                        <div className="flex gap-2">
+                          {isCreator ? (
+                            <button
+                              onClick={() => handleCancel(game.id)}
+                              disabled={actionLoading === game.id}
+                              className="flex-1 bg-red-500 text-white text-xs py-1.5 rounded font-semibold hover:bg-red-600 transition disabled:opacity-50"
+                            >
+                              Cancelar Juego
+                            </button>
+                          ) : isPlayer ? (
+                            <button
+                              onClick={() => handleLeave(game.id)}
+                              disabled={actionLoading === game.id}
+                              className="flex-1 bg-slate-200 text-slate-700 text-xs py-1.5 rounded font-semibold hover:bg-slate-300 transition disabled:opacity-50"
+                            >
+                              Salir
+                            </button>
+                          ) : (
+                            <button
+                              onClick={() => handleJoin(game.id)}
+                              disabled={actionLoading === game.id || isFull}
+                              className="flex-1 bg-orange-500 text-white text-xs py-1.5 rounded font-semibold hover:bg-orange-600 active:scale-95 transition disabled:opacity-50 disabled:active:scale-100"
+                            >
+                              {isFull ? 'Lleno' : 'Unirme'}
+                            </button>
+                          )}
+                        </div>
+                        {isPlayer && game.status !== 'cancelled' && (
                           <button
-                            onClick={() => handleCancel(game.id)}
-                            disabled={actionLoading === game.id}
-                            className="flex-1 bg-red-500 text-white text-xs py-1.5 rounded font-semibold hover:bg-red-600 transition disabled:opacity-50"
+                            onClick={() => setChatTarget({ gameId: game.id, title: game.title, sport: game.sport })}
+                            className="w-full bg-green-50 text-green-700 text-xs py-1.5 rounded font-semibold hover:bg-green-100 transition border border-green-200"
                           >
-                            Cancelar Juego
-                          </button>
-                        ) : isPlayer ? (
-                          <button
-                            onClick={() => handleLeave(game.id)}
-                            disabled={actionLoading === game.id}
-                            className="flex-1 bg-slate-200 text-slate-700 text-xs py-1.5 rounded font-semibold hover:bg-slate-300 transition disabled:opacity-50"
-                          >
-                            Salir
-                          </button>
-                        ) : (
-                          <button
-                            onClick={() => handleJoin(game.id)}
-                            disabled={actionLoading === game.id || isFull}
-                            className="flex-1 bg-green-600 text-white text-xs py-1.5 rounded font-semibold hover:bg-green-700 transition disabled:opacity-50"
-                          >
-                            {isFull ? 'Lleno' : 'Unirme'}
+                            Chat
                           </button>
                         )}
                       </div>
                     ) : (
                       <button
                         onClick={() => setShowLogin(true)}
-                        className="w-full bg-green-600 text-white text-xs py-1.5 rounded font-semibold hover:bg-green-700 transition"
+                        className="w-full bg-orange-500 text-white text-xs py-1.5 rounded font-semibold hover:bg-orange-600 active:scale-95 transition"
                       >
                         Inicia sesión para unirte
                       </button>
@@ -370,6 +389,7 @@ function App() {
           onLeaveGame={handleLeave}
           onShowLogin={() => setShowLogin(true)}
           actionLoading={actionLoading}
+          onOpenChat={(game) => setChatTarget({ gameId: game.id, title: game.title, sport: game.sport })}
         />
 
         {isAuthenticated && (
@@ -385,7 +405,7 @@ function App() {
             </button>
             <button
               onClick={() => setShowCreate(true)}
-              className="bg-green-600 text-white p-4 rounded-full shadow-2xl hover:bg-green-700 hover:scale-110 transition-all active:scale-95 flex items-center gap-2 group"
+              className="bg-orange-500 text-white p-4 rounded-full shadow-2xl hover:bg-orange-600 hover:scale-110 transition-all active:scale-95 flex items-center gap-2 group"
             >
               <Plus size={24} />
               <span className="max-w-0 overflow-hidden group-hover:max-w-xs transition-all duration-300 ease-in-out font-bold">
@@ -450,6 +470,26 @@ function App() {
             setAttendanceGame(null);
             setPendingAttendance((prev) => prev.filter((g) => g.id !== attendanceGame.id));
           }}
+        />
+      )}
+
+      {showChatList && (
+        <ChatList
+          onClose={() => setShowChatList(false)}
+          onOpenChat={(gameId, title, sport) => {
+            setShowChatList(false);
+            setChatTarget({ gameId, title, sport });
+          }}
+        />
+      )}
+
+      {chatTarget && userSub && (
+        <GameChat
+          gameId={chatTarget.gameId}
+          gameTitle={chatTarget.title}
+          gameSport={chatTarget.sport}
+          currentUserSub={userSub}
+          onClose={() => setChatTarget(null)}
         />
       )}
 

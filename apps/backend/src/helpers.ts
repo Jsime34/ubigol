@@ -36,6 +36,13 @@ export async function getComplexOwnerUserIds(complexId: string): Promise<string[
   return userIds;
 }
 
+export function isChatAvailable(game: any): boolean {
+  if (!game || game.status === 'cancelled') return false;
+  const gameEnd = new Date(`${game.date}T${game.endTime}`);
+  const cutoff = new Date(gameEnd.getTime() + 24 * 60 * 60 * 1000);
+  return new Date() <= cutoff;
+}
+
 export async function createNotification(userId: string, type: string, title: string, message: string, data?: Record<string, string>) {
   await db.send(new PutCommand({
     TableName: NOTIFICATIONS_TABLE,

@@ -90,6 +90,15 @@ export default function CreateGame({ onClose, onCreated, defaultLat, defaultLng,
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError('');
+
+    // Prevent creating a game in the past
+    const now = new Date();
+    const gameStart = new Date(`${date}T${time}`);
+    if (gameStart < now) {
+      setError('La hora de inicio debe ser posterior a la hora actual');
+      return;
+    }
+
     setLoading(true);
     try {
       await createGame({
@@ -122,8 +131,8 @@ export default function CreateGame({ onClose, onCreated, defaultLat, defaultLng,
     : complexes;
 
   return (
-    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[2000]" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
-      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 relative max-h-[90vh] overflow-y-auto">
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-[2000] animate-backdrop-in" onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}>
+      <div className="bg-white rounded-2xl shadow-xl w-full max-w-md p-6 relative max-h-[90vh] overflow-y-auto animate-modal-in">
         <button onClick={onClose} className="absolute top-4 right-4 p-1 hover:bg-slate-100 rounded-full transition">
           <X size={20} className="text-slate-400" />
         </button>
@@ -334,7 +343,7 @@ export default function CreateGame({ onClose, onCreated, defaultLat, defaultLng,
               <button
                 type="submit"
                 disabled={loading}
-                className="w-full bg-green-600 text-white py-2.5 rounded-lg font-bold hover:bg-green-700 transition disabled:opacity-50"
+                className="w-full bg-orange-500 text-white py-2.5 rounded-lg font-bold hover:bg-orange-600 active:scale-[0.98] transition disabled:opacity-50 disabled:active:scale-100"
               >
                 {loading ? 'Creando...' : 'Crear Juego'}
               </button>

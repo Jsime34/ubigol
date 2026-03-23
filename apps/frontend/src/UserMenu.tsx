@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
-import { User, LogOut, Gamepad2, MessageCircle, Building2, Shield, ChevronRight } from 'lucide-react';
-import { fetchGames, type Game } from './api';
+import { User, LogOut, Gamepad2, MessageCircle, Building2, Shield, ChevronRight, Star, ShieldCheck } from 'lucide-react';
+import { fetchGames, fetchPlayerReliability, type Game, type PlayerReliability } from './api';
 
 const SPORT_ICONS: Record<string, string> = {
   futbol: '⚽',
@@ -18,6 +18,7 @@ interface Props {
   isAdmin: boolean;
   onShowOwnerDashboard: () => void;
   onShowAdmin: () => void;
+  onShowChats: () => void;
   onLogout: () => void;
 }
 
@@ -29,12 +30,14 @@ export default function UserMenu({
   isAdmin,
   onShowOwnerDashboard,
   onShowAdmin,
+  onShowChats,
   onLogout,
 }: Props) {
   const [open, setOpen] = useState(false);
   const [showMyGames, setShowMyGames] = useState(false);
   const [myGames, setMyGames] = useState<Game[]>([]);
   const [loadingGames, setLoadingGames] = useState(false);
+  const [reliability, setReliability] = useState<PlayerReliability | null>(null);
   const ref = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
@@ -47,6 +50,12 @@ export default function UserMenu({
     document.addEventListener('mousedown', handler);
     return () => document.removeEventListener('mousedown', handler);
   }, []);
+
+  useEffect(() => {
+    if (open && userSub) {
+      fetchPlayerReliability(userSub).then(setReliability).catch(() => {});
+    }
+  }, [open, userSub]);
 
   const handleOpenMyGames = () => {
     setShowMyGames(true);
@@ -109,6 +118,35 @@ export default function UserMenu({
                 <p className="text-xs text-slate-500 truncate">{email}</p>
               </div>
             </div>
+            {reliability && reliability.totalReviews > 0 && (
+              <div className="mt-2 flex items-center gap-2">
+                <div className="flex items-center gap-1">
+                  <ShieldCheck size={13} className={
+                    reliability.attendanceRate! >= 80 ? 'text-green-600' :
+                    reliability.attendanceRate! >= 50 ? 'text-amber-500' : 'text-red-500'
+                  } />
+                  <span className={`text-xs font-bold ${
+                    reliability.attendanceRate! >= 80 ? 'text-green-600' :
+                    reliability.attendanceRate! >= 50 ? 'text-amber-500' : 'text-red-500'
+                  }`}>{reliability.attendanceRate}%</span>
+                </div>
+                {reliability.avgRating != null && (
+                  <div className="flex items-center gap-0.5">
+                    {[1, 2, 3, 4, 5].map((i) => (
+                      <Star
+                        key={i}
+                        size={12}
+                        className={i <= Math.round(reliability.avgRating!)
+                          ? 'text-amber-400 fill-amber-400'
+                          : 'text-slate-300'
+                        }
+                      />
+                    ))}
+                    <span className="text-[10px] text-slate-500 ml-0.5">({reliability.totalReviews})</span>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
 
           {showMyGames ? (
@@ -171,16 +209,14 @@ export default function UserMenu({
 
               {/* Chats */}
               <button
+                onClick={() => { onShowChats(); setOpen(false); }}
                 className="w-full flex items-center justify-between px-4 py-2.5 hover:bg-slate-50 transition"
-                disabled
               >
                 <div className="flex items-center gap-3">
-                  <MessageCircle size={16} className="text-slate-400" />
-                  <span className="text-sm text-slate-400">Chats</span>
-                  <span className="text-[9px] font-semibold text-slate-400 bg-slate-100 px-1.5 py-0.5 rounded-full">
-                    Pronto
-                  </span>
+                  <MessageCircle size={16} className="text-green-500" />
+                  <span className="text-sm text-slate-700">Chats</span>
                 </div>
+                <ChevronRight size={14} className="text-slate-400" />
               </button>
 
               {/* Owner dashboard */}
