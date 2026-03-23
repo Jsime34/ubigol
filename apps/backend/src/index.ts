@@ -1,6 +1,7 @@
 import 'dotenv/config';
 import http from 'http';
 import express, { Request, Response } from 'express';
+import cors from 'cors';
 import { requireAuth, ADMIN_EMAILS } from './middleware';
 import gamesRouter from './routes/games';
 import complexesRouter from './routes/complexes';
@@ -16,6 +17,7 @@ const PORT = 3000;
 
 setupSocket(server);
 
+app.use(cors());
 app.use(express.json());
 
 // Health check
